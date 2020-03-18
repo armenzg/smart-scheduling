@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-# XXX: Currently we're doing nothing useful with it
-from taskcluster import Secrets
+import taskcluster
 
 def main():
-    print("Hello world!")
+    secrets = taskcluster.Secrets(taskcluster.optionsFromEnvironment())
+    secret = secrets.get("project/cia/garbage/foo")
+    print(secret["secret"])
 
 if __name__ == "__main__":
     main()
