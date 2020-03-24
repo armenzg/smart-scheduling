@@ -58,6 +58,11 @@ secret = secrets.get("project/cia/garbage/foo")
 print(secret["secret"])
 ```
 
+## How this is set up
+
+We set up a CI-A project in the Taskcluster Community set up (see [configuration](https://github.com/mozilla/community-tc-config/blob/master/config/projects/cia.yml)).
+It's documentation is defined in [here](https://github.com/mozilla/community-tc-config/blob/master/config/projects/README.md).
+
 ## Official documentation
 
 You can find the official documentation here:
