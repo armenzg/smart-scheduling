@@ -31,12 +31,12 @@ get them deployed automatically rather manually defining them (filed [issue](htt
 In Taskcluster we can store [secrets](https://community-tc.services.mozilla.com/secrets).
 If you belong to the [CI-A Github team](https://github.com/orgs/mozilla/teams/cia/members) team you can create and fetch secrets.
 Open [this secret](https://community-tc.services.mozilla.com/secrets/project%2Fcia%2Fgarbage%2Ffoo) and try to see it. If you can see the
-secret you can then create your own.
+secret you can then create your own, however, note that its name needs to start with **project/cia**.
 
 ### Retrieving secrets locally
 
 To test *locally* that your script can fetch secrets you will have to [download a binary](https://github.com/taskcluster/taskcluster/tree/master/clients/client-shell#readme)
-to set up your credentials. Unfortunately, this only works for Linux and Windows (filed [issue](https://github.com/armenzg/smart-scheduling/issues/1)).
+to set up your credentials. Unfortunately, this only works for Linux and Mac OS X (filed [issue](https://github.com/armenzg/smart-scheduling/issues/1)).
 
 On Mac OS X, you will need to right click the binary and Open it. That will except the binary from some security measures.
 
