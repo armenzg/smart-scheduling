@@ -1,5 +1,3 @@
-git checkout dev
-git pull origin dev
 cd /smart-scheduling/scripts/etl/schedulers
 pip3 --version
 pip3 install -r requirements.txt
