@@ -4,3 +4,4 @@ pip3 install -r requirements.txt
 python3 --version
 export PYTHONPATH=.:vendor
 python3 main.py
+
