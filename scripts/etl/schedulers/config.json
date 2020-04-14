@@ -3,22 +3,35 @@
   "interval": "6hour",
   "range": {
     "min": "today-3week",
-    "max": "today-2day"
+    "max": "today-1day"
   },
+  "branches": "autoland",
   "config_db": {
     "filename": "config.sqlite",
     "upgrade": false
   },
+  "hg_cache": {
+    "use_cache": true,
+    "hg": {
+      "url": "https://hg.mozilla.org"
+    },
+    "repo": {
+      "host": "http://localhost",
+      "port": 9200,
+      "$ref": "#es",
+      "index": "repo",
+      "type": "revision",
+      "typed": false,
+      "timeout": 300,
+      "consistency": "one",
+      "debug": false,
+      "limit_replicas": false
+    }
+  },
+
   "destination": {
     "account_info": {
-      "type": "service_account",
-      "project_id": "moz-fx-dev-ekyle-treeherder",
-      "client_email": "test-treeherder-extract@moz-fx-dev-ekyle-treeherder.iam.gserviceaccount.com",
-      "client_id": "116659350535089980029",
-      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-      "token_uri": "https://oauth2.googleapis.com/token",
-      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-      "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test-treeherder-extract%40moz-fx-dev-ekyle-treeherder.iam.gserviceaccount.com"
+      "$ref": "file:///e:/moz-fx-dev-ekyle-treeherder-a838a7718652.json"
     },
     "dataset": "dev-scheduling",
     "table": "schedulers",
@@ -60,15 +73,17 @@
           "reseed_interval": 10080
 
         },
-        "file_cache": {
-          "driver": "file",
-          "path": ".cache"
-        }
+//        "file_cache": {
+//          "driver": "file",
+//          "path": ".cache"
+//        }
       }
     }
   },
   "constants": {
-    "jx_bigquery.bigquery.DEBUG": true
+    "jx_bigquery.bigquery.DEBUG": true,
+    "mozci.util.req.DEFAULT_RETRIES": 5,
+    "mozci.util.req.DEFAULT_BACKOFF_FACTOR": 5
   },
   "debug": {
     "trace": true

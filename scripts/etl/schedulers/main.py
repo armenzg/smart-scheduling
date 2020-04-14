@@ -13,9 +13,9 @@ import os
 
 import adr
 import loguru
-import taskcluster
 from adr.configuration import Configuration
 from adr.errors import MissingDataError
+from adr.util.cache_stores import SeededFileStore
 from cachy import CacheManager
 from cachy.stores import NullStore
 from mozci.push import make_push_objects
@@ -24,8 +24,8 @@ import jx_sqlite
 import mo_math
 from jx_bigquery import bigquery
 from jx_python import jx
-from mo_dots import Data, coalesce, listwrap, wrap, concat_field, set_default
-from mo_json import value2json
+from mo_dots import Data, coalesce, listwrap, wrap
+from mo_files import File
 from mo_logs import startup, constants, Log, machine_metadata
 from mo_threads import Process
 from mo_times import Date, Duration, Timer
@@ -34,31 +34,6 @@ from pyLibrary.env import git
 DEFAULT_START = "today-2day"
 LOOK_BACK = 30
 LOOK_FORWARD = 30
-
-
-SECRET_PREFIX = "project/cia/smart-scheduling"
-SECRET_NAMES = [
-    "destination.account_info",
-]
-
-
-def inject_secrets(config):
-    """
-    INJECT THE SECRETS INTO THE CONFIGURATION
-    :param config: CONFIG DATA
-
-    ************************************************************************
-    ** ENSURE YOU HAVE AN ENVIRONMENT VARIABLE SET:
-    ** TASKCLUSTER_ROOT_URL = https://community-tc.services.mozilla.com
-    ************************************************************************
-    """
-    with Timer("get secrets"):
-        options = taskcluster.optionsFromEnvironment()
-        secrets = taskcluster.Secrets(options)
-        acc = Data()
-        for s in listwrap(SECRET_NAMES):
-            acc[s] = secrets.get(concat_field(SECRET_PREFIX, s))['secret']
-        set_default(config, acc)
 
 
 class Schedulers:
@@ -129,22 +104,20 @@ class Schedulers:
         try:
             for push in pushes:
                 with Timer("get tasks for push {{push}}", {"push": push.id}):
-                    schedulers = [
-                        label.split("shadow-scheduler-")[1]
-                        for label in push.scheduled_task_labels
-                        if "shadow-scheduler" in label
-                    ]
+                    try:
+                        schedulers = [
+                            label.split("shadow-scheduler-")[1]
+                            for label in push.scheduled_task_labels
+                            if "shadow-scheduler" in label
+                        ]
+                    except Exception as e:
+                        Log.warning("could not get schedulers", cause=e)
+                        schedulers = []
+
                     scheduler = []
                     for s in schedulers:
                         try:
-                            scheduler.append(
-                                {
-                                    "name": s,
-                                    "tasks": jx.sort(
-                                        push.get_shadow_scheduler_tasks(s)
-                                    ),
-                                }
-                            )
+                            scheduler.append({"name": s, "tasks": jx.sort(push.get_shadow_scheduler_tasks(s))})
                         except Exception:
                             pass
                 try:
@@ -216,9 +189,8 @@ def main():
     try:
         config = startup.read_settings()
         constants.set(config.constants)
-        inject_secrets(config)
 
-        with Timer("PATCH ADR: dd update() method to Configuration class"):
+        with Timer("Add update() method to Configuration class"):
 
             def update(self, config):
                 """
@@ -237,7 +209,12 @@ def main():
                 # caching is enabled or not at runtime.
                 self._config["cache"].setdefault("stores", {"null": {"driver": "null"}})
                 object.__setattr__(self, "cache", CacheManager(self._config["cache"]))
-                self.cache.extend("null", lambda driver: NullStore())
+                for _, store in self._config['cache']['stores'].items():
+                    if store.path and not store.path.endswith("/"):
+                        # REQUIRED, OTHERWISE FileStore._create_cache_directory() WILL LOOK AT PARENT DIRECTORY
+                        store.path = store.path + "/"
+                self.cache.extend("seeded-file", SeededFileStore)
+                self.cache.extend("null", lambda _: NullStore())
 
             setattr(Configuration, "update", update)
 

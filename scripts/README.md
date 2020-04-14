@@ -43,7 +43,7 @@ When you save, you will get an access token. *Ensure you record the `accessToken
 
 #### Direct Injection
 
-You now With the three parameters known you can get the secrets
+With the three parameters known you can get the secrets
 
 ```python
 import taskcluster
