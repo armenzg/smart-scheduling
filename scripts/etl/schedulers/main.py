@@ -13,6 +13,7 @@ import os
 
 import adr
 import loguru
+import taskcluster
 from adr.configuration import Configuration
 from adr.errors import MissingDataError
 from adr.util.cache_stores import SeededFileStore
@@ -24,8 +25,7 @@ import jx_sqlite
 import mo_math
 from jx_bigquery import bigquery
 from jx_python import jx
-from mo_dots import Data, coalesce, listwrap, wrap
-from mo_files import File
+from mo_dots import Data, coalesce, listwrap, wrap, concat_field, set_default
 from mo_logs import startup, constants, Log, machine_metadata
 from mo_threads import Process
 from mo_times import Date, Duration, Timer
@@ -34,6 +34,31 @@ from pyLibrary.env import git
 DEFAULT_START = "today-2day"
 LOOK_BACK = 30
 LOOK_FORWARD = 30
+
+
+SECRET_PREFIX = "project/cia/smart-scheduling"
+SECRET_NAMES = [
+    "destination.account_info",
+]
+
+
+def inject_secrets(config):
+    """
+    INJECT THE SECRETS INTO THE CONFIGURATION
+    :param config: CONFIG DATA
+
+    ************************************************************************
+    ** ENSURE YOU HAVE AN ENVIRONMENT VARIABLE SET:
+    ** TASKCLUSTER_ROOT_URL = https://community-tc.services.mozilla.com
+    ************************************************************************
+    """
+    with Timer("get secrets"):
+        options = taskcluster.optionsFromEnvironment()
+        secrets = taskcluster.Secrets(options)
+        acc = Data()
+        for s in listwrap(SECRET_NAMES):
+            acc[s] = secrets.get(concat_field(SECRET_PREFIX, s))['secret']
+        set_default(config, acc)
 
 
 class Schedulers:
@@ -189,6 +214,7 @@ def main():
     try:
         config = startup.read_settings()
         constants.set(config.constants)
+        inject_secrets(config)
 
         with Timer("Add update() method to Configuration class"):
 
