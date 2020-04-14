@@ -1,4 +1,3 @@
-git clone https://github.com/armenzg/smart-scheduling
 git checkout dev
 git pull origin dev
 cd smart-scheduling/scripts/etl/schedulers
