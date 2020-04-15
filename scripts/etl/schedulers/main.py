@@ -56,7 +56,8 @@ def inject_secrets(config):
     """
     with Timer("get secrets"):
         options = taskcluster.optionsFromEnvironment()
-        set_default(options, {"rootUrl": os.environ.get('TASKCLUSTER_PROXY_URL')})
+        # TASKCLUSTER_URL EXISTS IN TASKCLUSTER TASK ENVIRONMENT
+        options['rootUrl'] = os.environ.get('TASKCLUSTER_PROXY_URL')
 
         Log.note("Call Secrets with {{rootUrl}}", rootUrl=options['rootUrl'])
 
