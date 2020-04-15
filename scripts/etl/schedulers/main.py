@@ -9,7 +9,9 @@
 from __future__ import division
 from __future__ import unicode_literals
 
+import logging
 import os
+from sys import stderr
 
 import adr
 import loguru
@@ -25,7 +27,8 @@ import jx_sqlite
 import mo_math
 from jx_bigquery import bigquery
 from jx_python import jx
-from mo_dots import Data, coalesce, listwrap, wrap, concat_field, set_default
+from mo_dots import Data, coalesce, listwrap, wrap, concat_field, set_default, DataObject
+from mo_future import text
 from mo_logs import startup, constants, Log, machine_metadata
 from mo_threads import Process
 from mo_times import Date, Duration, Timer
@@ -257,6 +260,11 @@ def main():
             _logging, level="DEBUG", format="{message}", filter=lambda r: True,
         )
 
+        # SHUNT PYTHON LOGGING TO MAIN LOGGING
+        logger = logging.getLogger()
+        logger.setLevel(logging.DEBUG)
+        logger.addHandler(LogHanlder())
+
         Schedulers(config).process()
     except Exception as e:
         Log.warning("Problem with etl! Shutting down.", cause=e)
@@ -273,6 +281,17 @@ def _logging(message):
     log_format = '{{machine.name}} (pid {{process}}) - {{time|datetime}} - {{thread}} - "{{file}}:{{line}}" - ({{function}}) - {{message}}'
     Log.main_log.write(log_format, params)
 
+
+class LogHanlder(logging.Handler):
+    def emit(self, record):
+        try:
+            record = DataObject(record)
+            record.machine = machine_metadata
+            record.message = record.msg.format(record.args)
+            log_format = '{{machine.name}} (pid {{process}}) - {{created|datetime}} - {{threadName}} - "{{pathname}}:{{lineno}}" - ({{funcName}}) - {{message}}'
+            Log.main_log.write(log_format, record)
+        except Exception as e:
+            stderr.write("problem with logging")
 
 if __name__ == "__main__":
     main()
