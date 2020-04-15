@@ -28,7 +28,6 @@ import mo_math
 from jx_bigquery import bigquery
 from jx_python import jx
 from mo_dots import Data, coalesce, listwrap, wrap, concat_field, set_default, DataObject
-from mo_future import text
 from mo_logs import startup, constants, Log, machine_metadata
 from mo_threads import Process
 from mo_times import Date, Duration, Timer
@@ -58,6 +57,9 @@ def inject_secrets(config):
     with Timer("get secrets"):
         options = taskcluster.optionsFromEnvironment()
         set_default(options, {"rootUrl": os.environ.get('TASKCLUSTER_PROXY_URL')})
+
+        Log.note("Call Secrets with {{rootUrl}}", rootUrl=options['rootUrl'])
+
         secrets = taskcluster.Secrets(options)
         acc = Data()
         for s in listwrap(SECRET_NAMES):
@@ -287,9 +289,10 @@ class LogHanlder(logging.Handler):
 
     def emit(self, record):
         try:
+            message = record.msg % tuple(record.args)
             record = DataObject(record)
             record.machine = machine_metadata
-            record.message = record.msg
+            record.message = message
             log_format = '{{machine.name}} (pid {{process}}) - {{created|datetime}} - {{threadName}} - "{{pathname}}:{{lineno}}" - ({{funcName}}) - {{message}}'
             Log.main_log.write(log_format, record)
         except Exception as e:
