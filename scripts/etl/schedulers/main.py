@@ -261,9 +261,7 @@ def main():
         )
 
         # SHUNT PYTHON LOGGING TO MAIN LOGGING
-        logger = logging.getLogger()
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(LogHanlder())
+        shunt_logging()
 
         Schedulers(config).process()
     except Exception as e:
@@ -283,15 +281,26 @@ def _logging(message):
 
 
 class LogHanlder(logging.Handler):
+    def __init__(self, logger):
+        logging.Handler.__init__(self)
+        self.logger=logger
+
     def emit(self, record):
         try:
             record = DataObject(record)
             record.machine = machine_metadata
-            record.message = record.msg.format(record.args)
+            record.message = record.msg
             log_format = '{{machine.name}} (pid {{process}}) - {{created|datetime}} - {{threadName}} - "{{pathname}}:{{lineno}}" - ({{funcName}}) - {{message}}'
             Log.main_log.write(log_format, record)
         except Exception as e:
             stderr.write("problem with logging")
+
+
+def shunt_logging():
+    logger = logging.getLogger()
+    logger.setLevel(level=logging.DEBUG)
+    logger.addHandler(LogHanlder(logger))
+
 
 if __name__ == "__main__":
     main()
