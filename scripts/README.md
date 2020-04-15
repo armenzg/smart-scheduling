@@ -11,7 +11,7 @@ Requirements are specific to each script, hopefully there is `README.md` there t
 Create a new directory and place your desired script in there.
 You can define your own requirements file as well.
 
-## Using secrets
+## Adding secrets
 
 In Taskcluster we can store [secrets](https://community-tc.services.mozilla.com/secrets).
 If you belong to the [CI-A Github team](https://github.com/orgs/mozilla/teams/cia/members) team you can create and fetch secrets.
@@ -41,18 +41,18 @@ Fill in the parameters:
    
 When you save, you will get an access token. *Ensure you record the `accessToken`, you will not see it again*
 
-#### Direct Injection
+#### Credentials
 
 With the three parameters known you can get the secrets
 
 ```python
 import taskcluster
 options = {
+    "rootUrl": "https://community-tc.services.mozilla.com",
     "credentials": {
-        "accessToken": "nOtalEgItImAtEbAsE64aCCeStOkEnTWWxdUxbvtiI7Q",
-        "clientId": "github/2334429|klahnakoski/test-id"
+        "clientId": "github/2334429|klahnakoski/test-id",
+        "accessToken": "nOtalEgItImAtEbAsE64aCCeStOkEnTWWxdUxbvtiI7Q"
     },
-    "rootUrl": "https://community-tc.services.mozilla.com"
 }
 print(taskcluster.Secrets(options))
 ```
@@ -76,29 +76,39 @@ secrets = taskcluster.Secrets(options)
 print(secrets.get("project/cia/garbage/foo"))
 ```
 
-## Schedule a task on Taskcluster
+## Using secrets on Taskcluster
 
-For now, we will have to create a hook per script and we will have to create it by hand.
-You can see [this hook](https://community-tc.services.mozilla.com/hooks/project-cia/hello-world) as
-a simple example. It checks out this repo, set ups the virtualenv and executes the script.
+#### Create Role
 
-Copy the contents of that hook and create a new hook. Only modify the `command` entry to meet your needs.
-Adjust the `cron` schedule in the UI.
+You must [create a Role](https://community-tc.services.mozilla.com/auth/roles/create) for the hook; you will give it the scopes needed to accesc the secrets
 
-Note that you can manually trigger a hook (without waiting for its schedule) and that will schedule a task
-executing the contents of the hook.
+* **Role ID** - Some name, starting with `hook-id:` and followed by some reasonable path for your team and project. Example: `hook-id:project-cia/etl-schedulers`
+* **Scopes** List of scopes the role has. Be sure to include the secret name.  Example: `secrets:get:project/cia/smart-scheduling*`
 
-In the future, if we decide that we want to improve this system we can define our hooks in this repo and
-get them deployed automatically rather manually defining them (filed [issue](https://github.com/armenzg/smart-scheduling/issues/2)).
+#### Create Hook
 
+Hooks are used to trigger tasks, and you must [create a hook](https://community-tc.services.mozilla.com/hooks/create). There are a number of options, and you can look over other existing hooks. [Hello World example](https://community-tc.services.mozilla.com/hooks/project-cia/hello-world)
 
+* cron
+* command 
 
+In the task template, be sure to `assume:` the Role ID.   
 
+    ```yaml
+    scopes:
+      - 'assume:hook-id:project-cia/etl-schedulers
 
+#### Credentials
 
+Taskcluster will provide `TASKCLUSTER_PROXY_URL` environment variable to running tasks. This value can be used as the `rootUrl`, and without credentials.  
 
+```python
+import taskcluster
+secrets = taskcluster.Secrets({'rootUrl': os.environ['TASKCLUSTER_PROXY_URL']})
+print(secrets.get("project/cia/garbage/foo"))
+```
 
-
+> **WARNING** The Taskcluster client code attempts to detect the running environment; if it detects it NOT running in taskcluster, it will not accept `TASKCLUSTER_PROXY_URL` environment variable, and things break. 
 
 
 ### Retrieving secrets locally (linux only)

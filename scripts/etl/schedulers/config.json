@@ -59,7 +59,7 @@
           "archive_relpath": "data/adr_cache",
           "reseed_interval": 10080
 
-        },
+        }
 //        "file_cache": {
 //          "driver": "file",
 //          "path": ".cache"

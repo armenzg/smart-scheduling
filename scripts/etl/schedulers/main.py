@@ -54,6 +54,7 @@ def inject_secrets(config):
     """
     with Timer("get secrets"):
         options = taskcluster.optionsFromEnvironment()
+        set_default(options, {"rootUrl": os.environ.get('TASKCLUSTER_PROXY_URL')})
         secrets = taskcluster.Secrets(options)
         acc = Data()
         for s in listwrap(SECRET_NAMES):
@@ -275,3 +276,6 @@ def _logging(message):
 
 if __name__ == "__main__":
     main()
+
+
+
