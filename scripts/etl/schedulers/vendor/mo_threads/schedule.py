@@ -4,7 +4,7 @@
 # License, v. 2.0. If a copy of the MPL was not distributed with this file,
 # You can obtain one at http://mozilla.org/MPL/2.0/.
 #
-# Contect: Kyle Lahnakoski (kyle@lahnakoski.com)
+# Contact: Kyle Lahnakoski (kyle@lahnakoski.com)
 #
 from __future__ import division
 from __future__ import unicode_literals
@@ -32,7 +32,7 @@ class Schedule(object):
         starting,  # THE TIME TO START THE INTERVAL COUNT
         max_runtime=MAX_RUNTIME,  # LIMIT HOW LONG THE PROCESS IS ALIVE
         wait_for_shutdown=WAIT_FOR_SHUTDOWN,  # LIMIT PAITENCE WHEN ASKING FOR SHUTDOWN, THEN SEND KILL
-        process=None,
+        process=None,  # PARAMETERS TO START PROCESS
     ):
         self.duration = Duration(interval)
         self.starting = coalesce(Date(starting), Date.now())

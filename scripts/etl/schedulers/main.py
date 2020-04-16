@@ -28,8 +28,11 @@ import mo_math
 from jx_bigquery import bigquery
 from jx_python import jx
 from mo_dots import Data, coalesce, listwrap, wrap, concat_field, set_default, DataObject
-from mo_logs import startup, constants, Log, machine_metadata
-from mo_threads import Process
+from mo_future import is_text
+from mo_logs import startup, constants, Log, machine_metadata, Except
+from mo_threads import Process, Signal, Till, Thread
+from mo_threads.repeat import Repeat
+from mo_threads.schedule import Schedule
 from mo_times import Date, Duration, Timer
 from pyLibrary.env import git
 
@@ -56,11 +59,11 @@ def inject_secrets(config):
     """
     with Timer("get secrets"):
         options = taskcluster.optionsFromEnvironment()
-        # TASKCLUSTER_URL EXISTS IN TASKCLUSTER TASK ENVIRONMENT
-        options['rootUrl'] = os.environ.get('TASKCLUSTER_PROXY_URL')
-
-        Log.note("Call Secrets with {{rootUrl}}", rootUrl=options['rootUrl'])
-
+        # TASKCLUSTER_ROOT_URL EXISTS IN THE TASK ENVIRONMENT, OVERRIDE
+        options = set_default(
+            {"rootUrl": os.environ.get('TASKCLUSTER_PROXY_URL')},
+            options
+        )
         secrets = taskcluster.Secrets(options)
         acc = Data()
         for s in listwrap(SECRET_NAMES):
@@ -221,7 +224,12 @@ def main():
     try:
         config = startup.read_settings()
         constants.set(config.constants)
-        inject_secrets(config)
+        Log.start(config.debug)
+
+        # SHUNT PYTHON LOGGING TO MAIN LOGGING
+        shunt_logging()
+
+        # inject_secrets(config)
 
         with Timer("Add update() method to Configuration class"):
 
@@ -251,10 +259,9 @@ def main():
 
             setattr(Configuration, "update", update)
 
-        # UPDATE ADR COFIGURATION
-        adr.config.update(config.adr)
-
-        Log.start(config.debug)
+        # UPDATE ADR CONFIGURATION
+        with Repeat("waiting for ADR", every="10second"):
+            adr.config.update(config.adr)
 
         # SHUNT ADR LOGGING TO MAIN LOGGING
         # https://loguru.readthedocs.io/en/stable/api/logger.html#loguru._logger.Logger.add
@@ -262,9 +269,6 @@ def main():
         loguru.logger.add(
             _logging, level="DEBUG", format="{message}", filter=lambda r: True,
         )
-
-        # SHUNT PYTHON LOGGING TO MAIN LOGGING
-        shunt_logging()
 
         Schedulers(config).process()
     except Exception as e:
@@ -290,13 +294,17 @@ class LogHanlder(logging.Handler):
 
     def emit(self, record):
         try:
-            message = record.msg % tuple(record.args)
+            if record.args and is_text(record.msg):
+                message = record.msg % tuple(record.args)
+            else:
+                message = record.msg
             record = DataObject(record)
             record.machine = machine_metadata
             record.message = message
             log_format = '{{machine.name}} (pid {{process}}) - {{created|datetime}} - {{threadName}} - "{{pathname}}:{{lineno}}" - ({{funcName}}) - {{message}}'
             Log.main_log.write(log_format, record)
         except Exception as e:
+            e = Except.wrap(e)
             stderr.write("problem with logging")
 
 
