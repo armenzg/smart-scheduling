@@ -10,6 +10,13 @@
     "filename": "config.sqlite",
     "upgrade": false
   },
+  "treeherder": {
+    "rootUrl": {"$ref": ["env://TASKCLUSTER_PROXY_URL", "env://TASKCLUSTER_ROOT_URL"]},
+    "credentials": {
+      "clientId": {"$ref": "env://TASKCLUSTER_CLIENT_ID"},
+      "accessToken": {"$ref": "env://TASKCLUSTER_ACCESS_TOKEN"}
+    }
+  },
   "destination": {
     "account_info": {
       "type": "service_account",
@@ -20,7 +27,6 @@
       "token_uri": "https://oauth2.googleapis.com/token",
       "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
       "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/test-treeherder-extract%40moz-fx-dev-ekyle-treeherder.iam.gserviceaccount.com",
-//      "$ref": "file:///e:/moz-fx-dev-ekyle-treeherder-a838a7718652.json"
     },
     "dataset": "dev-scheduling",
     "table": "schedulers",

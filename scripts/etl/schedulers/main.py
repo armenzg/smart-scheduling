@@ -9,12 +9,9 @@
 from __future__ import division
 from __future__ import unicode_literals
 
-import logging
 import os
-from sys import stderr
 
 import adr
-import loguru
 import taskcluster
 from adr.configuration import Configuration
 from adr.errors import MissingDataError
@@ -27,12 +24,18 @@ import jx_sqlite
 import mo_math
 from jx_bigquery import bigquery
 from jx_python import jx
-from mo_dots import Data, coalesce, listwrap, wrap, concat_field, set_default, DataObject
-from mo_future import is_text
-from mo_logs import startup, constants, Log, machine_metadata, Except
-from mo_threads import Process, Signal, Till, Thread
+from logs import capture_logging, capture_loguru
+from mo_dots import (
+    Data,
+    coalesce,
+    listwrap,
+    wrap,
+    concat_field,
+    set_default,
+)
+from mo_logs import startup, constants, Log
+from mo_threads import Process
 from mo_threads.repeat import Repeat
-from mo_threads.schedule import Schedule
 from mo_times import Date, Duration, Timer
 from pyLibrary.env import git
 
@@ -58,16 +61,10 @@ def inject_secrets(config):
     ************************************************************************
     """
     with Timer("get secrets"):
-        options = taskcluster.optionsFromEnvironment()
-        # TASKCLUSTER_ROOT_URL EXISTS IN THE TASK ENVIRONMENT, OVERRIDE
-        options = set_default(
-            {"rootUrl": os.environ.get('TASKCLUSTER_PROXY_URL')},
-            options
-        )
-        secrets = taskcluster.Secrets(options)
+        secrets = taskcluster.Secrets(config.treeherder)
         acc = Data()
         for s in listwrap(SECRET_NAMES):
-            acc[s] = secrets.get(concat_field(SECRET_PREFIX, s))['secret']
+            acc[s] = secrets.get(concat_field(SECRET_PREFIX, s))["secret"]
         set_default(config, acc)
 
 
@@ -152,7 +149,14 @@ class Schedulers:
                     scheduler = []
                     for s in schedulers:
                         try:
-                            scheduler.append({"name": s, "tasks": jx.sort(push.get_shadow_scheduler_tasks(s))})
+                            scheduler.append(
+                                {
+                                    "name": s,
+                                    "tasks": jx.sort(
+                                        push.get_shadow_scheduler_tasks(s)
+                                    ),
+                                }
+                            )
                         except Exception:
                             pass
                 try:
@@ -227,7 +231,10 @@ def main():
         Log.start(config.debug)
 
         # SHUNT PYTHON LOGGING TO MAIN LOGGING
-        shunt_logging()
+        capture_logging()
+        # SHUNT ADR LOGGING TO MAIN LOGGING
+        # https://loguru.readthedocs.io/en/stable/api/logger.html#loguru._logger.Logger.add
+        capture_loguru()
 
         # inject_secrets(config)
 
@@ -250,7 +257,7 @@ def main():
                 # caching is enabled or not at runtime.
                 self._config["cache"].setdefault("stores", {"null": {"driver": "null"}})
                 object.__setattr__(self, "cache", CacheManager(self._config["cache"]))
-                for _, store in self._config['cache']['stores'].items():
+                for _, store in self._config["cache"]["stores"].items():
                     if store.path and not store.path.endswith("/"):
                         # REQUIRED, OTHERWISE FileStore._create_cache_directory() WILL LOOK AT PARENT DIRECTORY
                         store.path = store.path + "/"
@@ -262,13 +269,10 @@ def main():
         # UPDATE ADR CONFIGURATION
         with Repeat("waiting for ADR", every="10second"):
             adr.config.update(config.adr)
-
-        # SHUNT ADR LOGGING TO MAIN LOGGING
-        # https://loguru.readthedocs.io/en/stable/api/logger.html#loguru._logger.Logger.add
-        loguru.logger.remove()
-        loguru.logger.add(
-            _logging, level="DEBUG", format="{message}", filter=lambda r: True,
-        )
+            # DUMMY TO TRIGGER CACHE
+            make_push_objects(
+                from_date=Date.today().format(), to_date=Date.now().format(), branch="autoland"
+            )
 
         Schedulers(config).process()
     except Exception as e:
@@ -277,45 +281,5 @@ def main():
         Log.stop()
 
 
-def _logging(message):
-    # params = wrap(message.record)
-    # Log.note(message, default_params=params)
-
-    params = message.record
-    params["machine"] = machine_metadata
-    log_format = '{{machine.name}} (pid {{process}}) - {{time|datetime}} - {{thread}} - "{{file}}:{{line}}" - ({{function}}) - {{message}}'
-    Log.main_log.write(log_format, params)
-
-
-class LogHanlder(logging.Handler):
-    def __init__(self, logger):
-        logging.Handler.__init__(self)
-        self.logger=logger
-
-    def emit(self, record):
-        try:
-            if record.args and is_text(record.msg):
-                message = record.msg % tuple(record.args)
-            else:
-                message = record.msg
-            record = DataObject(record)
-            record.machine = machine_metadata
-            record.message = message
-            log_format = '{{machine.name}} (pid {{process}}) - {{created|datetime}} - {{threadName}} - "{{pathname}}:{{lineno}}" - ({{funcName}}) - {{message}}'
-            Log.main_log.write(log_format, record)
-        except Exception as e:
-            e = Except.wrap(e)
-            stderr.write("problem with logging")
-
-
-def shunt_logging():
-    logger = logging.getLogger()
-    logger.setLevel(level=logging.DEBUG)
-    logger.addHandler(LogHanlder(logger))
-
-
 if __name__ == "__main__":
     main()
-
-
-

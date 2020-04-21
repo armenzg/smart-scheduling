@@ -43,20 +43,21 @@
     "verbose": 0,
     "url": "https://activedata.allizom.org/query",
     "cache": {
-      "retention": 10080,  // minutes = 7 days
+      "retention": 10080,  // minutes
       "serializer": "json",
       "stores": {
         "file_cache": {
           "driver": "file",
           "path": ".cache"
-        }
+        },
       }
     }
   },
   "constants": {
     "jx_bigquery.bigquery.DEBUG": true,
     "mozci.util.req.DEFAULT_RETRIES": 5,
-    "mozci.util.req.DEFAULT_BACKOFF_FACTOR": 5
+    "mozci.util.req.DEFAULT_BACKOFF_FACTOR": 5,
+    "logs.LOG_LEVEL": 10,  //10=DEBUG, 20=INFO
   },
   "debug": {
     "trace": true
